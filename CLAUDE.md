@@ -8,21 +8,36 @@ VitaSync - это Telegram WebApp для анализа совместимост
 
 ## Essential Commands
 
-### Development
+### Development - ✅ WORKING
+
+#### Frontend (WebApp) - ✅ FULLY FUNCTIONAL
 ```bash
-# Frontend + Backend одновременно
+# Установка зависимостей (из корня проекта)
 cd /root/vitasync-telegram-webapp
-./start-webapp-only.sh
+npm install  # Устанавливает все зависимости через workspaces
 
-# Или по отдельности:
-# Frontend
-cd frontend && npm run dev -- --host
+# Запуск frontend
+cd frontend
+npm run dev
+```
 
-# Backend с переменными окружения
+#### Backend API - ✅ WORKING
+```bash
+# Способ 1: С переменными окружения
 source .env && cd backend && npm run dev
 
-# Telegram Bot (только бот)
-./run-bot-only.sh
+# Способ 2: Через workspace (рекомендуется)
+cd /root/vitasync-telegram-webapp
+npm run dev:backend
+
+# Проверка работоспособности
+curl http://localhost:3000/api/health
+```
+
+#### Telegram Bot - ⚠️ TO BE CONFIGURED
+```bash
+# НЕ запускается автоматически, требует отдельной настройки
+./run-bot-only.sh  # Будет настроен позже
 ```
 
 ### Testing & Linting
@@ -35,15 +50,19 @@ cd backend && npm run lint
 cd backend && npm test
 ```
 
-### Production
+### Production - ✅ CONFIGURED
 ```bash
-# SSL сертификаты в /root/ssl-certs/SSL Сертификаты/
-# Caddy конфигурация для profy.top
-sudo systemctl reload caddy
+# SSL сертификаты настроены в двух местах:
+# - /root/ssl-certs/SSL Сертификаты/
+# - /etc/caddy/SSL Сертификаты/
 
-# Доступ:
-# https://profy.top/webapp/
-# https://profy.top/api/health
+# Caddy работает и проксирует:
+# https://profy.top/webapp/ → localhost:5173
+# https://profy.top/api/ → localhost:3000
+
+# Проверка состояния:
+sudo systemctl status caddy
+curl -k https://profy.top/webapp/
 ```
 
 ## High-Level Architecture
@@ -104,24 +123,53 @@ sudo systemctl reload caddy
 - SchedulePage: График приема (заглушка)
 
 ### Important Patterns
-1. Всегда использовать source .env перед запуском backend
-2. Frontend должен запускаться с флагом --host
+1. Backend использует dotenv для автозагрузки переменных окружения
+2. Frontend НЕ должен запускаться с флагом --host ❗
 3. Telegram требует валидный SSL для WebApp
 4. Caddy проксирует:
    - /webapp/* → localhost:5173
    - /api/* → localhost:3000
+5. Backend запускается на порту 3000, обязательна проверка свободности порта
 
-### Common Issues
-1. Backend не видит env переменные → source .env
+### Common Issues & Solutions ✅
+1. Backend не видит env переменные → теперь dotenv подключен автоматически
 2. Telegram bot ошибка "invalid URL" → проверить TELEGRAM_WEBAPP_URL
-3. SSL ошибки → сертификаты в /root/ssl-certs/
-4. Port already in use → pkill -f node
+3. SSL ошибки → сертификаты есть в обоих местах:
+   - `/root/ssl-certs/SSL Сертификаты/`
+   - `/etc/caddy/SSL Сертификаты/`
+4. Port already in use → `sudo lsof -i :PORT` затем `kill -9 PID`
+5. Vite не устанавливается → запускать `npm install` из корня (workspaces)
+6. Vite блокирует profy.top → добавить в `allowedHosts` в vite.config.js
+7. База данных не подключается → проверить пароль пользователя в PostgreSQL
+8. OpenAI API не работает → проверить OPENAI_API_KEY в .env файле
 
 ### Development Tips
-1. Используйте ./start-webapp-only.sh для быстрого запуска
-2. Логи в /root/vitasync-telegram-webapp/logs/
+1. НЕ используйте ./start-webapp-only.sh (проблемы с установкой зависимостей)
+2. Запускайте frontend и backend отдельно
 3. Frontend автоматически перезагружается при изменениях
 4. Backend использует nodemon для авто-рестарта
+5. При проблемах с vite всегда проверяйте занятые порты
+
+### Vite Configuration ✅
+```javascript
+// frontend/vite.config.js
+{
+  server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: true,
+    cors: true,
+    allowedHosts: ['profy.top', 'localhost'],  // Критично для работы через Caddy
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
+  },
+  base: '/webapp/',
+}
+```
 
 ### Security Notes
 - JWT токены для авторизации

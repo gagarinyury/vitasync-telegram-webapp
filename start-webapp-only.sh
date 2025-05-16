@@ -6,7 +6,9 @@ echo "=================================="
 cd /root/vitasync-telegram-webapp
 
 # Загрузка переменных окружения
+set -o allexport
 source .env
+set +o allexport
 
 # Проверка Node.js
 if ! command -v node &> /dev/null; then
@@ -16,12 +18,28 @@ fi
 
 # Установка зависимостей если нужно
 echo "📦 Проверка зависимостей..."
-npm install
+npm install --legacy-peer-deps
+
+# Установка зависимостей для backend
+echo "📦 Установка зависимостей backend..."
+cd backend
+if [ ! -d "node_modules" ]; then
+    echo "📦 Установка зависимостей backend..."
+    npm install --legacy-peer-deps
+fi
+
+# Установка зависимостей для frontend
+echo "📦 Установка зависимостей frontend..."
+cd ../frontend
+if [ ! -d "node_modules" ]; then
+    echo "📦 Установка зависимостей frontend..."
+    npm install --legacy-peer-deps
+fi
 
 # Запуск backend
 echo ""
 echo "🚀 Запуск backend API..."
-cd backend
+cd ../backend
 npm run dev &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID"

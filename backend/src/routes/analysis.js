@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const openAIService = require('../services/openai');
+const { getInstance: getOpenAIService } = require('../services/openai');
+const openAIService = getOpenAIService();
 const { getDb } = require('../services/database');
 const { logger } = require('../utils/logger');
 

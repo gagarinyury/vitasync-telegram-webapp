@@ -16,16 +16,19 @@ function initBot() {
     const sql = getDb();
     
     try {
-      // Save or update user
+      // Добавляем отладку чтобы видеть что приходит
+      logger.info('User data:', user);
+      
+      // Save or update user - используем null вместо undefined
       await sql`
         INSERT INTO users (telegram_id, username, first_name, last_name, language_code, is_bot, is_premium)
-        VALUES (${user.id}, ${user.username}, ${user.first_name}, ${user.last_name}, ${user.language_code}, ${user.is_bot}, ${user.is_premium || false})
+        VALUES (${user.id}, ${user.username ?? null}, ${user.first_name ?? null}, ${user.last_name ?? null}, ${user.language_code ?? null}, ${user.is_bot ?? false}, ${user.is_premium || false})
         ON CONFLICT (telegram_id) 
         DO UPDATE SET 
-          username = EXCLUDED.username,
-          first_name = EXCLUDED.first_name,
-          last_name = EXCLUDED.last_name,
-          language_code = EXCLUDED.language_code,
+          username = COALESCE(EXCLUDED.username, users.username),
+          first_name = COALESCE(EXCLUDED.first_name, users.first_name),
+          last_name = COALESCE(EXCLUDED.last_name, users.last_name),
+          language_code = COALESCE(EXCLUDED.language_code, users.language_code),
           is_premium = EXCLUDED.is_premium,
           updated_at = CURRENT_TIMESTAMP
       `;

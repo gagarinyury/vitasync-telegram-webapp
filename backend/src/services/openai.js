@@ -6,9 +6,14 @@ const path = require('path');
 
 class OpenAIService {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    if (!process.env.OPENAI_API_KEY) {
+      logger.warn('OPENAI_API_KEY is not set. OpenAI features will not work.');
+      this.openai = null;
+    } else {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
     this.models = {
       standard: 'gpt-4o-mini',
       premium: 'gpt-4-1106-preview' // Note: Using available model as gpt-4.1-mini doesn't exist
@@ -86,6 +91,9 @@ class OpenAIService {
   }
 
   async analyzeCompatibility(supplements, userId, modelType = 'standard') {
+    if (!this.openai) {
+      throw new Error('OpenAI service is not configured. Please set OPENAI_API_KEY.');
+    }
     try {
       // Check user limit
       const limitCheck = await this.checkUserLimit(userId, modelType);
@@ -172,4 +180,13 @@ class OpenAIService {
   }
 }
 
-module.exports = new OpenAIService();
+let instance;
+
+module.exports = {
+  getInstance: () => {
+    if (!instance) {
+      instance = new OpenAIService();
+    }
+    return instance;
+  }
+};
