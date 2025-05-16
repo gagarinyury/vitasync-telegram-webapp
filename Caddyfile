@@ -1,0 +1,48 @@
+# Caddy configuration for VitaSync Telegram WebApp
+
+profy.top {
+    # Use purchased SSL certificate
+    tls "/root/ssl-certs/SSL Сертификаты/profy_top.crt" "/root/ssl-certs/SSL Сертификаты/profy_top.key"
+
+    # Reverse proxy for webapp
+    handle /webapp/* {
+        reverse_proxy localhost:5173
+    }
+
+    # Reverse proxy for backend API  
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+
+    # WebSocket support
+    handle /socket.io/* {
+        reverse_proxy localhost:3000
+    }
+
+    # Root redirect to webapp
+    handle / {
+        redir /webapp/ permanent
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Compression
+    encode gzip
+
+    # Logging
+    log {
+        output file /var/log/caddy/vitasync-access.log
+        format json
+    }
+}
+
+# Redirect www to non-www
+www.profy.top {
+    redir https://profy.top{uri} permanent
+}
