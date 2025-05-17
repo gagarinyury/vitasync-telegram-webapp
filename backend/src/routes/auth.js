@@ -6,6 +6,19 @@ const { body, validationResult } = require('express-validator');
 const { getDb } = require('../services/database');
 const { logger } = require('../utils/logger');
 
+// Функция очистки данных пользователя
+function sanitizeUserData(user) {
+  return {
+    id: user.id,
+    username: user.username || null,
+    first_name: user.first_name || 'User',
+    last_name: user.last_name || null,
+    language_code: user.language_code || 'ru',
+    is_bot: user.is_bot || false,
+    is_premium: user.is_premium || false
+  };
+}
+
 // Telegram WebApp authentication
 router.post('/telegram', [
   body('initData').notEmpty(),
@@ -26,18 +39,36 @@ router.post('/telegram', [
     // TODO: Implement proper Telegram hash verification
     // For now, we'll trust the data for MVP
     
+    // Логирование входящих данных
+    logger.info('Telegram auth attempt:', {
+      userId: user.id,
+      hasUsername: !!user.username,
+      hasLastName: !!user.last_name
+    });
+    
+    // Очистка данных пользователя
+    const cleanedUser = sanitizeUserData(user);
+    
     const sql = getDb();
     
     // Get or create user
     const [dbUser] = await sql`
       INSERT INTO users (telegram_id, username, first_name, last_name, language_code, is_bot, is_premium)
-      VALUES (${user.id}, ${user.username}, ${user.first_name}, ${user.last_name}, ${user.language_code || 'ru'}, ${user.is_bot || false}, ${user.is_premium || false})
+      VALUES (
+        ${cleanedUser.id}, 
+        ${cleanedUser.username}, 
+        ${cleanedUser.first_name}, 
+        ${cleanedUser.last_name}, 
+        ${cleanedUser.language_code}, 
+        ${cleanedUser.is_bot}, 
+        ${cleanedUser.is_premium}
+      )
       ON CONFLICT (telegram_id) 
       DO UPDATE SET 
-        username = EXCLUDED.username,
-        first_name = EXCLUDED.first_name,
-        last_name = EXCLUDED.last_name,
-        is_premium = EXCLUDED.is_premium,
+        username = ${cleanedUser.username},
+        first_name = ${cleanedUser.first_name},
+        last_name = ${cleanedUser.last_name},
+        is_premium = ${cleanedUser.is_premium},
         updated_at = CURRENT_TIMESTAMP
       RETURNING *
     `;
@@ -67,7 +98,18 @@ router.post('/telegram', [
     
   } catch (error) {
     logger.error('Auth error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
+    
+    if (error.code === 'UNDEFINED_VALUE') {
+      return res.status(400).json({ 
+        error: 'Некорректные данные пользователя',
+        details: 'Убедитесь, что у вас актуальная версия Telegram'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Ошибка авторизации',
+      details: 'Попробуйте позже или обратитесь в поддержку'
+    });
   }
 });
 
