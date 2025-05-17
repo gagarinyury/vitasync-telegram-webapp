@@ -1,50 +1,58 @@
 #!/bin/bash
+# Скрипт для запуска VitaSync проекта
+# Запускает backend и frontend сервисы
 
-# VitaSync - скрипт запуска без Docker
+echo "🚀 Запуск VitaSync проекта..."
 
-echo "🚀 Запуск VitaSync без Docker"
-echo "============================"
+# Установка переменной окружения
+export NODE_ENV=development
 
-# Установка зависимостей
-if ! command -v npm &> /dev/null; then
-    echo "❌ npm не установлен. Установите Node.js и npm"
+# Проверка занятости портов
+if lsof -i :3000 >/dev/null 2>&1; then
+    echo "❌ Порт 3000 уже занят! Остановите процесс или используйте stop.sh"
     exit 1
 fi
 
-# Установка зависимостей backend
-echo "📦 Установка зависимостей backend..."
+if lsof -i :5173 >/dev/null 2>&1; then
+    echo "❌ Порт 5173 уже занят! Остановите процесс или используйте stop.sh"
+    exit 1
+fi
+
+# Проверка наличия node_modules
+if [ ! -d "node_modules" ]; then
+    echo "📦 Установка зависимостей..."
+    npm install
+fi
+
+# Запуск backend в фоне
+echo "🟢 Запуск backend (порт 3000)..."
 cd backend
-npm install
-
-# Установка зависимостей frontend
-echo "📦 Установка зависимостей frontend..."
-cd ../frontend
-npm install
-
-# Сборка frontend
-echo "🔨 Сборка frontend..."
-npm run build
-
-# Запуск backend
-echo "🚀 Запуск backend..."
-cd ../backend
-npm start &
+npm run dev > /tmp/vitasync-backend.log 2>&1 &
 BACKEND_PID=$!
+cd ..
 
-# Запуск frontend в dev режиме (для разработки)
-echo "🚀 Запуск frontend..."
-cd ../frontend
-npm run dev &
+# Небольшая пауза перед запуском frontend
+sleep 2
+
+# Запуск frontend в фоне
+echo "🟢 Запуск frontend (порт 5173)..."
+cd frontend
+npm run dev > /tmp/vitasync-frontend.log 2>&1 &
 FRONTEND_PID=$!
+cd ..
 
+# Сохранение PID в файл для остановки
+echo $BACKEND_PID > /tmp/vitasync-backend.pid
+echo $FRONTEND_PID > /tmp/vitasync-frontend.pid
+
+echo "✅ VitaSync успешно запущен!"
 echo ""
-echo "✅ VitaSync запущен!"
+echo "📍 Frontend: http://localhost:5173/webapp/"
+echo "📍 Backend API: http://localhost:3000/api/"
+echo "📍 Production: https://profy.top/webapp/"
 echo ""
-echo "Backend PID: $BACKEND_PID"
-echo "Frontend PID: $FRONTEND_PID"
+echo "📄 Логи:"
+echo "  - Backend: tail -f /tmp/vitasync-backend.log"
+echo "  - Frontend: tail -f /tmp/vitasync-frontend.log"
 echo ""
-echo "📍 URL приложения: https://profy.top/webapp"
-echo "📍 API endpoint: https://profy.top/api"
-echo ""
-echo "Для остановки используйте:"
-echo "kill $BACKEND_PID $FRONTEND_PID"
+echo "🛑 Для остановки используйте: ./stop.sh"
