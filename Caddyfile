@@ -2,7 +2,7 @@
 
 profy.top {
     # Use purchased SSL certificate
-    tls "/root/ssl-certs/SSL Сертификаты/profy_top.crt" "/root/ssl-certs/SSL Сертификаты/profy_top.key"
+    tls "/etc/caddy/SSL Сертификаты/profy_top.crt" "/etc/caddy/SSL Сертификаты/profy_top.key"
 
     # Reverse proxy for webapp
     handle /webapp/* {

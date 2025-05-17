@@ -3,33 +3,31 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import {
   Home,
-  Science,
-  CalendarMonth,
+  Schedule as ScheduleIcon,
   Person,
   History,
-  Menu
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useTelegram } from '../hooks/useTelegram';
 
 const StyledBottomNavigation = styled(BottomNavigation)(({ theme }) => ({
-  height: 75,
+  height: 64,
   backgroundColor: theme.palette.background.paper,
-  borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
   '& .MuiBottomNavigationAction-root': {
     minWidth: 60,
     maxWidth: 120,
-    padding: '6px 0',
-    transition: 'all 0.3s ease',
+    padding: '8px 0',
+    transition: 'all 0.2s ease',
     '&.Mui-selected': {
       color: theme.palette.primary.main,
       '& .MuiBottomNavigationAction-label': {
-        fontSize: '0.85rem',
-        fontWeight: 600,
+        fontSize: '0.875rem',
+        fontWeight: 500,
       },
       '& .MuiSvgIcon-root': {
-        fontSize: '1.8rem',
-        transform: 'scale(1.1)',
+        fontSize: '1.75rem',
+        transform: 'translateY(-2px)',
       }
     },
     '&:not(.Mui-selected)': {
@@ -40,9 +38,10 @@ const StyledBottomNavigation = styled(BottomNavigation)(({ theme }) => ({
     }
   },
   '& .MuiBottomNavigationAction-label': {
-    fontSize: '0.75rem',
+    fontSize: '0.825rem',
     marginTop: 4,
-    transition: 'all 0.3s ease',
+    transition: 'all 0.2s ease',
+    fontFamily: theme.typography.fontFamily,
   }
 }));
 
@@ -51,10 +50,10 @@ const NavigationWrapper = styled(Paper)(({ theme }) => ({
   bottom: 0,
   left: 0,
   right: 0,
-  borderTopLeftRadius: theme.spacing(2),
-  borderTopRightRadius: theme.spacing(2),
-  overflow: 'hidden',
-  boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.1)',
+  borderTopLeftRadius: 0,
+  borderTopRightRadius: 0,
+  boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.06)',
+  zIndex: 1000,
 }));
 
 function Navigation() {
@@ -65,15 +64,20 @@ function Navigation() {
   const navigationItems = [
     { label: 'Главная', value: '/', icon: <Home /> },
     { label: 'История', value: '/history', icon: <History /> },
-    { label: 'График', value: '/schedule', icon: <CalendarMonth /> },
+    { label: 'График', value: '/schedule', icon: <ScheduleIcon /> },
     { label: 'Профиль', value: '/profile', icon: <Person /> },
-    { label: 'Меню', value: '/menu', icon: <Menu /> }
   ];
+
+  // Hide navigation on certain pages
+  const hideOnRoutes = ['/quick-select', '/results'];
+  if (hideOnRoutes.includes(location.pathname)) {
+    return null;
+  }
 
   const currentValue = navigationItems.find(item => 
     location.pathname === item.value || 
     (item.value !== '/' && location.pathname.startsWith(item.value))
-  )?.value || (location.pathname === '/analysis' ? '/' : location.pathname);
+  )?.value || '/';
 
   const handleChange = (event, newValue) => {
     hapticFeedback('light');

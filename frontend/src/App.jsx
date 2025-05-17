@@ -8,6 +8,8 @@ import AnalysisPage from './pages/AnalysisPage';
 import SchedulePage from './pages/SchedulePage';
 import ProfilePage from './pages/ProfilePage';
 import MainMenuPage from './pages/MainMenuPage';
+import QuickSelectScreen from './pages/QuickSelectScreen';
+import ResultScreen from './pages/ResultScreen';
 import Navigation from './components/Navigation';
 import LoadingScreen from './components/LoadingScreen';
 import theme from './styles/theme';
@@ -44,8 +46,10 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/menu" element={<MainMenuPage />} />
           <Route path="/analysis" element={<AnalysisPage />} />
+          <Route path="/results" element={<ResultScreen />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/quick-select" element={<QuickSelectScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Container>

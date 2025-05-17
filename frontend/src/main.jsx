@@ -8,6 +8,7 @@ import { TelegramProvider } from './hooks/useTelegram';
 import App from './App';
 import theme from './styles/theme';
 import './styles/index.css';
+import './styles/animations.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

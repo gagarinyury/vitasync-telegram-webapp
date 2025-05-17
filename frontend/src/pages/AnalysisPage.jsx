@@ -8,67 +8,84 @@ import {
   Alert,
   Button,
   Chip,
-  Divider,
-  ToggleButton,
-  ToggleButtonGroup,
   Card,
-  CardContent,
   Container,
   LinearProgress,
-  Grow,
-  Fade
+  Fade,
+  IconButton,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   Science as ScienceIcon,
-  Info as InfoIcon,
   ArrowBack,
-  Psychology,
-  AutoFixHigh
+  AutoFixHigh,
+  Star as StarsIcon,
 } from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 import { useTelegram } from '../hooks/useTelegram';
 import analysisService from '../services/analysisService';
 
-const ResultCard = styled(Card)(({ theme, severity }) => ({
-  marginBottom: theme.spacing(2),
-  borderRadius: theme.spacing(2),
-  overflow: 'hidden',
-  border: `2px solid ${
-    severity === 'success' ? theme.palette.success.main :
-    severity === 'warning' ? theme.palette.warning.main :
-    severity === 'error' ? theme.palette.error.main :
-    theme.palette.info.main
-  }`,
+const slideInUp = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+const CompactHeader = styled(Box)(({ theme }) => ({
+  textAlign: 'center',
+  paddingTop: theme.spacing(1),
+  paddingBottom: theme.spacing(2),
+  animation: `${slideInUp} 0.5s ease-out`,
+}));
+
+const ModelCard = styled(Card)(({ theme, isSelected }) => ({
+  position: 'relative',
+  cursor: 'pointer',
   transition: 'all 0.3s ease',
+  border: `2px solid ${isSelected ? theme.palette.primary.main : 'transparent'}`,
+  backgroundColor: isSelected ? theme.palette.primary.light + '10' : theme.palette.background.paper,
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[4]
-  }
+    transform: 'scale(1.02)',
+    boxShadow: theme.shadows[4],
+  },
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: theme.spacing(2),
 }));
 
-const AnalysisHeader = styled(Box)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%)',
-  color: '#fff',
-  padding: theme.spacing(3),
-  borderRadius: theme.spacing(2),
-  marginBottom: theme.spacing(3),
-  textAlign: 'center'
+const SupplementsContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexWrap: 'nowrap',
+  gap: theme.spacing(1),
+  overflowX: 'auto',
+  paddingBottom: theme.spacing(1),
+  '&::-webkit-scrollbar': {
+    height: 4,
+  },
+  '&::-webkit-scrollbar-track': {
+    backgroundColor: theme.palette.grey[200],
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: theme.palette.grey[400],
+    borderRadius: 2,
+  },
 }));
 
-const ModelButton = styled(ToggleButton)(({ theme }) => ({
-  padding: theme.spacing(1.5, 3),
-  borderRadius: theme.spacing(2),
-  textTransform: 'none',
-  '&.Mui-selected': {
-    backgroundColor: theme.palette.primary.main,
-    color: '#fff',
-    '&:hover': {
-      backgroundColor: theme.palette.primary.dark,
-    }
-  }
+const ResultSection = styled(Box)(({ theme }) => ({
+  animation: `${slideInUp} 0.6s ease-out`,
+  animationFillMode: 'both',
 }));
 
 function AnalysisPage() {
@@ -82,15 +99,27 @@ function AnalysisPage() {
   const [limitInfo, setLimitInfo] = useState(null);
   const [progress, setProgress] = useState(0);
   
-  const supplements = location.state?.supplements || [];
+  // Получаем supplements из localStorage как основной способ
+  const [supplements, setSupplements] = useState([]);
+  
+  useEffect(() => {
+    const stored = localStorage.getItem('pending-analysis');
+    if (stored) {
+      const parsedSupplements = JSON.parse(stored);
+      setSupplements(parsedSupplements);
+      localStorage.removeItem('pending-analysis');
+    }
+  }, []);
 
   useEffect(() => {
+    console.log('AnalysisPage - supplements:', supplements);
+    
     if (supplements.length === 0) {
-      navigate('/');
+      console.log('No supplements found, waiting for data');
       return;
     }
     loadLimits();
-  }, [supplements, navigate]);
+  }, [supplements]);
 
   useEffect(() => {
     let timer;
@@ -106,8 +135,8 @@ function AnalysisPage() {
     try {
       const limits = await analysisService.getLimits();
       setLimitInfo(limits);
-    } catch (error) {
-      console.error('Failed to load limits:', error);
+    } catch (err) {
+      console.error('Error loading limits:', err);
     }
   };
 
@@ -115,234 +144,234 @@ function AnalysisPage() {
     setLoading(true);
     setError('');
     setProgress(0);
-    
+    hapticFeedback('medium');
+
     try {
-      const result = await analysisService.analyzeCompatibility(
-        supplements.join(', '),
-        modelType
-      );
-      
-      setProgress(100);
-      
+      const result = await analysisService.analyzeCompatibility(supplements, modelType);
       if (result.success) {
         setAnalysis(result.analysis);
-        setLimitInfo(result.limitInfo);
+        setProgress(100);
         hapticFeedback('success');
+        
+        if (modelType === 'premium' && result.limitInfo) {
+          setLimitInfo(result.limitInfo);
+        }
       } else {
-        setError(result.error);
+        setError(result.error || 'Ошибка при анализе');
         hapticFeedback('error');
       }
-    } catch (error) {
-      setError('Произошла ошибка при анализе. Попробуйте позже.');
+    } catch (err) {
+      setError(err.message || 'Ошибка при анализе добавок');
       hapticFeedback('error');
     } finally {
       setLoading(false);
-      setProgress(0);
     }
   };
 
-  const formatAnalysis = (text) => {
-    if (!text) return null;
-    
-    const sections = text.split(/(?=<b>)/).filter(Boolean);
-    
-    return sections.map((section, index) => {
-      const lines = section.split('\n').filter(Boolean);
-      const title = lines[0]?.replace(/<\/?b>/g, '');
-      const content = lines.slice(1).join('\n');
-      
-      let icon = <InfoIcon />;
-      let severity = 'info';
-      
-      if (title?.includes('Механизм')) {
-        icon = <ScienceIcon />;
-        severity = 'info';
-      }
-      if (title?.includes('Последствия')) {
-        icon = <WarningIcon />;
-        severity = 'warning';
-      }
-      if (title?.includes('избежать')) {
-        icon = <CheckCircleIcon />;
-        severity = 'success';
-      }
-      if (title?.includes('Заключение')) {
-        icon = <ErrorIcon />;
-        severity = 'error';
-      }
-      
-      return (
-        <Grow in={true} timeout={600 + index * 200} key={index}>
-          <ResultCard severity={severity}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ 
-                  p: 1, 
-                  borderRadius: '50%', 
-                  backgroundColor: `${
-                    severity === 'success' ? 'success' :
-                    severity === 'warning' ? 'warning' :
-                    severity === 'error' ? 'error' :
-                    'info'
-                  }.light`,
-                  color: `${severity}.main`,
-                  mr: 2
-                }}>
-                  {icon}
-                </Box>
-                <Typography variant="h6" fontWeight={600}>
-                  {title}
-                </Typography>
-              </Box>
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
-                {content}
-              </Typography>
-            </CardContent>
-          </ResultCard>
-        </Grow>
-      );
-    });
+  const getIcon = (severity) => {
+    switch (severity) {
+      case 'success':
+        return <CheckCircleIcon />;
+      case 'warning':
+        return <WarningIcon />;
+      case 'error':
+        return <ErrorIcon />;
+      default:
+        return <ScienceIcon />;
+    }
   };
 
+  // Remove navigation to results page
+
+  // Показываем загрузку если нет добавок
+  if (supplements.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Container maxWidth="md" sx={{ pt: 2, pb: 8 }}>
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={() => navigate('/')}
-        sx={{ mb: 2 }}
-      >
-        Назад
-      </Button>
-
-      <AnalysisHeader>
-        <Psychology sx={{ fontSize: 48, mb: 1 }} />
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Анализ совместимости
-        </Typography>
-        <Typography variant="body1" sx={{ mt: 1, opacity: 0.9 }}>
-          Проверка взаимодействия добавок с помощью AI
-        </Typography>
-      </AnalysisHeader>
-
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }} elevation={3}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-          Выбранные добавки:
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-          {supplements.map((supplement, index) => (
-            <Chip
-              key={index}
-              label={supplement}
-              color="primary"
-              sx={{ fontSize: '0.9rem' }}
-            />
-          ))}
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-            Выберите режим анализа:
-          </Typography>
-          <ToggleButtonGroup
-            fullWidth
-            value={modelType}
-            exclusive
-            onChange={(e, value) => value && setModelType(value)}
-            sx={{ mb: 2 }}
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="static" color="transparent" elevation={0}>
+        <Toolbar sx={{ px: 1 }}>
+          <IconButton
+            edge="start"
+            onClick={() => navigate('/')}
+            sx={{ mr: 2 }}
           >
-            <ModelButton value="standard">
-              <Box>
-                <AutoFixHigh sx={{ mb: 0.5 }} />
+            <ArrowBack />
+          </IconButton>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+            Анализ добавок
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="sm" sx={{ pb: 8 }}>
+        <CompactHeader>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Выбранные добавки
+          </Typography>
+          <SupplementsContainer>
+            {supplements.map((supplement, index) => (
+              <Chip
+                key={index}
+                label={supplement}
+                color="primary"
+                size="small"
+                sx={{ whiteSpace: 'nowrap' }}
+              />
+            ))}
+          </SupplementsContainer>
+        </CompactHeader>
+
+        <Paper sx={{ p: 2, borderRadius: 2, mb: 2 }} elevation={0}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Режим анализа
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <Box sx={{ flex: 1 }}>
+              <ModelCard
+                isSelected={modelType === 'standard'}
+                onClick={() => setModelType('standard')}
+              >
+                <AutoFixHigh sx={{ fontSize: 32, color: modelType === 'standard' ? 'primary.main' : 'text.secondary', mb: 1 }} />
                 <Typography variant="body1" fontWeight={600}>
                   Стандартный
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Без ограничений
                 </Typography>
-              </Box>
-            </ModelButton>
-            <ModelButton value="premium">
-              <Box>
-                <Psychology sx={{ mb: 0.5 }} />
+              </ModelCard>
+            </Box>
+            
+            <Box sx={{ flex: 1 }}>
+              <ModelCard
+                isSelected={modelType === 'premium'}
+                onClick={() => setModelType('premium')}
+              >
+                <StarsIcon sx={{ fontSize: 32, color: modelType === 'premium' ? 'primary.main' : 'text.secondary', mb: 1 }} />
                 <Typography variant="body1" fontWeight={600}>
                   Премиум AI
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {limitInfo?.premium?.remaining || 0} из 2 в день
+                  {limitInfo?.premium?.remaining || 0}/2 в день
                 </Typography>
-              </Box>
-            </ModelButton>
-          </ToggleButtonGroup>
-          
+              </ModelCard>
+            </Box>
+          </Box>
+
           {modelType === 'premium' && limitInfo?.premium && (
             <Fade in={true}>
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  borderRadius: 2, 
+                  mb: 2,
+                  '& .MuiAlert-message': { fontSize: '0.875rem' }
+                }}
+              >
                 {limitInfo.premium.message}
               </Alert>
             </Fade>
           )}
-        </Box>
 
-        {loading && (
-          <Box sx={{ mb: 3 }}>
-            <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-              Анализирую добавки... {progress}%
-            </Typography>
-          </Box>
+          {loading && (
+            <Box sx={{ mb: 2 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={progress} 
+                sx={{ height: 4, borderRadius: 2 }} 
+              />
+              <Typography 
+                variant="caption" 
+                color="text.secondary" 
+                sx={{ display: 'block', textAlign: 'center', mt: 1 }}
+              >
+                Анализирую... {progress}%
+              </Typography>
+            </Box>
+          )}
+
+          <Button
+            fullWidth
+            variant="contained"
+            size="large"
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ScienceIcon />}
+            onClick={handleAnalyze}
+            disabled={loading}
+            sx={{ 
+              borderRadius: 2, 
+              py: 1.5,
+              background: 'linear-gradient(135deg, #3b82f6 0%, #10b981 100%)',
+              color: 'white',
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
+              }
+            }}
+          >
+            {loading ? 'Анализирую...' : 'Начать анализ'}
+          </Button>
+        </Paper>
+
+        {error && (
+          <Fade in={true}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                borderRadius: 2,
+                '& .MuiAlert-message': { fontSize: '0.875rem' }
+              }}
+            >
+              {error}
+            </Alert>
+          </Fade>
         )}
-
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
-          startIcon={loading ? <CircularProgress size={20} /> : <ScienceIcon />}
-          onClick={handleAnalyze}
-          disabled={loading}
-          sx={{ borderRadius: 3, py: 1.5 }}
-        >
-          {loading ? 'Анализирую...' : 'Начать анализ'}
-        </Button>
-      </Paper>
-
-      {error && (
-        <Fade in={true}>
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-            {error}
-          </Alert>
-        </Fade>
-      )}
-
-      {analysis && (
-        <Box>
-          <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
-            Результаты анализа
-          </Typography>
-          {formatAnalysis(analysis)}
-          
-          <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => navigate('/')}
-              sx={{ borderRadius: 3 }}
-            >
-              Новый анализ
-            </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => navigate('/schedule', { state: { supplements } })}
-              sx={{ borderRadius: 3 }}
-            >
-              Создать график приема
-            </Button>
-          </Box>
-        </Box>
-      )}
-    </Container>
+        
+        {analysis && (
+          <Fade in={true}>
+            <ResultSection sx={{ mt: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Результаты анализа
+              </Typography>
+              
+              {analysis.split('\n\n').map((section, index) => {
+                const lines = section.split('\n');
+                const title = lines[0];
+                const content = lines.slice(1).join('\n');
+                
+                let severity = 'info';
+                if (title.includes('Взаимодействие') || title.includes('Механизм')) {
+                  severity = 'warning';
+                } else if (title.includes('Рекомендации')) {
+                  severity = 'success';
+                } else if (title.includes('Заключение')) {
+                  severity = 'primary';
+                }
+                
+                return (
+                  <Card key={index} sx={{ mb: 2, p: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      {getIcon(severity)}
+                      <Typography variant="subtitle1" sx={{ ml: 1, fontWeight: 600 }}>
+                        {title.replace(/\*\*/g, '')}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {content.replace(/\*\*/g, '')}
+                    </Typography>
+                  </Card>
+                );
+              })}
+            </ResultSection>
+          </Fade>
+        )}
+      </Container>
+    </Box>
   );
 }
 
